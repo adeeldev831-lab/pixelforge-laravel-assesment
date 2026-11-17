@@ -57,6 +57,19 @@ class PixelforgeClient
     }
 
     /**
+     * What Pixelforge billed this API key per UTC day, both dates inclusive.
+     *
+     * @return list<array<string, mixed>> one entry per day
+     */
+    public function usage(string $startDate, string $endDate): array
+    {
+        return $this->send(fn (PendingRequest $http) => $http->get('usage', [
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+        ]))['data'];
+    }
+
+    /**
      * @param  callable(PendingRequest): Response  $call
      * @return array<string, mixed>
      *

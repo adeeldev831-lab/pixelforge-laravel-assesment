@@ -11,4 +11,7 @@ return [
     // Users pay Pixelforge's cost plus this percentage.
     'markup_percent' => 25,
 
+    // Comma-separated emails of the operators who may open the admin report.
+    'admin_emails' => array_filter(array_map('trim', explode(',', env('ADMIN_EMAILS', '')))),
+
 ];

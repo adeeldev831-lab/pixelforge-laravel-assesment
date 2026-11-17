@@ -54,6 +54,12 @@ class User extends Authenticatable
         return $this->hasMany(Generation::class);
     }
 
+    /** Operators are listed by email in the ADMIN_EMAILS environment variable. */
+    public function isAdmin(): bool
+    {
+        return in_array($this->email, config('pixelforge.admin_emails'), true);
+    }
+
     public function creditTransactions(): HasMany
     {
         return $this->hasMany(CreditTransaction::class);

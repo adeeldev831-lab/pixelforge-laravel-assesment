@@ -2,6 +2,7 @@ import type { LucideIcon } from 'lucide-vue-next';
 
 export interface Auth {
     user: User;
+    isAdmin: boolean;
 }
 
 export interface BreadcrumbItem {
@@ -72,4 +73,24 @@ export interface Credits {
     balance: string;
     reserved: string;
     available: string;
+}
+
+/** One line of the admin report. Money fields are exact decimal dollar strings. */
+export interface ReportRow {
+    generations: number;
+    charged: string;
+    provider_cost: string;
+    profit: string;
+}
+
+export interface DailyReportRow extends ReportRow {
+    date: string;
+    /** What Pixelforge's usage endpoint reports for the day, or null if it couldn't be fetched. */
+    pixelforge_cost: string | null;
+    matches_pixelforge: boolean | null;
+}
+
+export interface UserReportRow extends ReportRow {
+    date: string;
+    user: string;
 }
