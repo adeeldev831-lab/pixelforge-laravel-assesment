@@ -60,7 +60,7 @@ class SubmitGenerationTest extends TestCase
         $generation = Generation::factory()->create();
         Http::fake(['*' => $this->error(503, 'overloaded', ['Retry-After' => '2'])]);
 
-        $this->run_job($generation, attempts: 6)->assertNotReleased();
+        $this->run_job($generation, attempts: 8)->assertNotReleased();
 
         $generation->refresh();
         $this->assertSame(GenerationStatus::Failed, $generation->status);

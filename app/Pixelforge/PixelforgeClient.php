@@ -14,13 +14,23 @@ class PixelforgeClient
     /**
      * Current rates and token tables. Cached briefly: they rarely change, and the
      * final charge never uses them (it uses the rates on the generation itself).
+     * If Pixelforge can't be reached, the last copy we saw is used, so the page
+     * still loads and estimates still work during an outage.
      *
      * @return array<string, mixed>
      */
     public function pricing(): array
     {
         return Cache::remember('pixelforge.pricing', now()->addMinutes(5), function () {
-            return $this->send(fn (PendingRequest $http) => $http->get('pricing'));
+            try {
+                $pricing = $this->send(fn (PendingRequest $http) => $http->get('pricing'));
+            } catch (PixelforgeException|ConnectionException $e) {
+                return Cache::get('pixelforge.pricing.last_known') ?? throw $e;
+            }
+
+            Cache::forever('pixelforge.pricing.last_known', $pricing);
+
+            return $pricing;
         });
     }
 

@@ -27,9 +27,10 @@ Both stretch goals are included: credit balances and the admin report.
 - **One place changes a generation.** `GenerationUpdater` takes a generation object from Pixelforge and applies it under a row lock. A generation only moves forward (`submitting → queued → processing → succeeded | failed`) and a finished one never changes. The webhook, the response to our own create request and the polling fallback all go through it, so order and repetition don't matter.
 - **Webhooks.** The signature is checked over the raw body in constant time, and timestamps older than five minutes are refused. The event id is the primary key of `webhook_events`, and the event is stored and applied in one transaction, so a repeated delivery is acknowledged and changes nothing.
 - **A webhook can arrive before the create request returns.** Our own id is created first and sent as the `Idempotency-Key` and in `metadata`, so the webhook finds its row either way.
-- **Lost webhooks.** `generations:sync` runs every minute and asks Pixelforge about generations that are still unfinished after two minutes.
-- **Submitting.** Requests to Pixelforge are sent from a queued job. Rate limits, the concurrency limit, overloads and network errors are retried after `Retry-After`, with the delay doubling, for at most six attempts. Rejections that a retry can't fix (blocked prompt, invalid request, daily quota) fail at once with Pixelforge's message.
+- **Lost webhooks.** `generations:sync` runs every minute and asks Pixelforge about generations that are still unfinished after two minutes. It also fails, at no cost, any generation that never reached Pixelforge within 15 minutes, so it stops holding credits.
+- **Submitting.** Requests to Pixelforge are sent from a queued job. Rate limits, the concurrency limit, overloads and network errors are retried after `Retry-After`, with the delay doubling, capped at a minute, for at most eight attempts. Rejections that a retry can't fix (blocked prompt, invalid request, daily quota) fail at once with Pixelforge's message.
 - **Rate limit budget.** Live status reads our own database, never Pixelforge.
+- **Pricing outage.** Rates are cached for five minutes. If Pixelforge can't be reached, the last copy seen is used, so the page and estimates keep working.
 
 ## Decisions worth knowing
 

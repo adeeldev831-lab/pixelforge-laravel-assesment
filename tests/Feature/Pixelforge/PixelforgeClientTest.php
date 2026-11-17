@@ -72,4 +72,26 @@ class PixelforgeClientTest extends TestCase
         $this->assertTrue((new PixelforgeException('overloaded', 'Busy.', 503))->isRetryable());
         $this->assertTrue((new PixelforgeException('unexpected_response', 'Bad gateway.', 502))->isRetryable());
     }
+
+    public function test_pricing_falls_back_to_the_last_known_copy_when_pixelforge_is_down(): void
+    {
+        $pricing = json_decode(file_get_contents(base_path('tests/Fixtures/pricing.json')), true);
+        Http::fakeSequence('*/pricing')->push($pricing)->push(['error' => ['code' => 'overloaded', 'message' => 'Busy.']], 503);
+
+        $this->assertSame($pricing, (new PixelforgeClient)->pricing());
+
+        $this->travel(6)->minutes();
+
+        $this->assertSame($pricing, (new PixelforgeClient)->pricing());
+        Http::assertSentCount(2);
+    }
+
+    public function test_pricing_fails_when_pixelforge_is_down_and_nothing_was_ever_fetched(): void
+    {
+        Http::fake(['*/pricing' => Http::response(['error' => ['code' => 'overloaded', 'message' => 'Busy.']], 503)]);
+
+        $this->expectException(PixelforgeException::class);
+
+        (new PixelforgeClient)->pricing();
+    }
 }

@@ -4,6 +4,7 @@ namespace Tests\Feature\Generations;
 
 use App\Generations\GenerationStatus;
 use App\Models\Generation;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\Support\ProviderGeneration;
@@ -38,5 +39,20 @@ class SyncStaleGenerationsTest extends TestCase
         $this->artisan('generations:sync')->assertFailed();
 
         Http::assertSentCount(1);
+    }
+
+    public function test_a_generation_that_never_reached_pixelforge_is_failed_and_releases_its_credits(): void
+    {
+        $user = User::factory()->withCredits(1)->create();
+        $abandoned = Generation::factory()->for($user)->create(['created_at' => now()->subMinutes(20)]);
+        $stillSubmitting = Generation::factory()->for($user)->create(['created_at' => now()->subMinutes(2)]);
+
+        $this->artisan('generations:sync')->assertSuccessful();
+
+        $this->assertSame(GenerationStatus::Failed, $abandoned->refresh()->status);
+        $this->assertSame('submission_failed', $abandoned->error_code);
+        $this->assertSame(0, $abandoned->charged_nanos);
+        $this->assertSame(GenerationStatus::Submitting, $stillSubmitting->refresh()->status);
+        $this->assertSame($stillSubmitting->estimated_max_nanos, $user->reservedNanos());
     }
 }

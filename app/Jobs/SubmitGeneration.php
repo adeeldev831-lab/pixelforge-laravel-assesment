@@ -20,9 +20,9 @@ class SubmitGeneration implements ShouldQueue
 {
     use Queueable;
 
-    public int $tries = 6;
+    public int $tries = 8;
 
-    private const MAX_DELAY_SECONDS = 120;
+    private const MAX_DELAY_SECONDS = 60;
 
     public function __construct(public Generation $generation) {}
 
