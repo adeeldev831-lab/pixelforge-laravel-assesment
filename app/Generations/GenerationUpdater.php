@@ -25,8 +25,22 @@ class GenerationUpdater
     public function apply(Generation $generation, array $provider): Generation
     {
         return $this->locked($generation, function (Generation $generation) use ($provider) {
-            // Known as soon as anything from Pixelforge arrives, even a late or repeated event.
-            $generation->provider_id ??= $provider['id'];
+            if ($generation->provider_id === null) {
+                $generation->provider_id = $provider['id'];
+
+                // We gave up on submitting it (say, every attempt timed out), yet Pixelforge
+                // did accept it and will bill it. Start over from what Pixelforge says.
+                if ($generation->status === GenerationStatus::Failed) {
+                    $generation->fill([
+                        'status' => GenerationStatus::Submitting,
+                        'error_code' => null,
+                        'error_message' => null,
+                        'provider_cost_nanos' => null,
+                        'charged_nanos' => null,
+                        'completed_at' => null,
+                    ]);
+                }
+            }
 
             $status = GenerationStatus::from($provider['status']);
 
