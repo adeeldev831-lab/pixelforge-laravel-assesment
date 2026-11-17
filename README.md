@@ -28,7 +28,7 @@ Both stretch goals are included: credit balances and the admin report.
 - **Webhooks.** The signature is checked over the raw body in constant time, and timestamps older than five minutes are refused. The event id is the primary key of `webhook_events`, and the event is stored and applied in one transaction, so a repeated delivery is acknowledged and changes nothing.
 - **A webhook can arrive before the create request returns.** Our own id is created first and sent as the `Idempotency-Key` and in `metadata`, so the webhook finds its row either way.
 - **Lost webhooks.** `generations:sync` runs every minute and asks Pixelforge about generations that are still unfinished after two minutes. It also fails, at no cost, any generation that never reached Pixelforge within 15 minutes, so it stops holding credits.
-- **Submitting.** Requests to Pixelforge are sent from a queued job. Rate limits, the concurrency limit, overloads and network errors are retried after `Retry-After`, with the delay doubling, capped at a minute, for at most eight attempts. Rejections that a retry can't fix (blocked prompt, invalid request, daily quota) fail at once with Pixelforge's message.
+- **Submitting.** The first request to Pixelforge is sent right after the page has been answered, so it needs no queue worker; retries go on the queue. Rate limits, the concurrency limit, overloads and network errors are retried after `Retry-After`, with the delay doubling, capped at a minute, for at most eight attempts. Rejections that a retry can't fix (blocked prompt, invalid request, daily quota) fail at once with Pixelforge's message.
 - **Rate limit budget.** Live status reads our own database, never Pixelforge.
 - **Pricing outage.** Rates are cached for five minutes. If Pixelforge can't be reached, the last copy seen is used, so the page and estimates keep working.
 
@@ -74,4 +74,4 @@ The tests cover the money maths against the worked examples in the Pixelforge do
 
 ## Deploying
 
-The app needs a web process, a queue worker (`php artisan queue:work`), the scheduler (`php artisan schedule:run` every minute) and PostgreSQL. Use a separate Pixelforge API key for each environment: `GET /v1/usage` reports per key, so the admin report only matches when every generation in the database was made with the key in use.
+The app needs a web process, the scheduler (`php artisan schedule:run` every minute) and PostgreSQL. The scheduler also runs queued retries, so a separate queue worker is optional. Use a separate Pixelforge API key for each environment: `GET /v1/usage` reports per key, so the admin report only matches when every generation in the database was made with the key in use.

@@ -8,8 +8,8 @@ use App\Models\CreditTransaction;
 use App\Models\Generation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Queue;
 use Tests\Support\ProviderGeneration;
 use Tests\TestCase;
 
@@ -31,7 +31,7 @@ class CreditsTest extends TestCase
         parent::setUp();
 
         Http::fake(['*/pricing' => Http::response(file_get_contents(base_path('tests/Fixtures/pricing.json')))]);
-        Queue::fake();
+        Bus::fake();
     }
 
     public function test_buying_credits_adds_them_to_the_balance(): void
@@ -62,7 +62,7 @@ class CreditsTest extends TestCase
 
         $this->actingAs($user)->post('/generations', $this->request())->assertSessionHasErrors('balance');
         $this->assertSame(0, $user->generations()->count());
-        Queue::assertNothingPushed();
+        Bus::assertNothingDispatched();
 
         $this->addCredits($user, 1);
 

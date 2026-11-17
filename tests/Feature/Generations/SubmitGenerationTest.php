@@ -11,6 +11,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Tests\Support\ProviderGeneration;
 use Tests\TestCase;
 
@@ -18,16 +19,24 @@ class SubmitGenerationTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Queue::fake();
+    }
+
     public function test_an_accepted_generation_becomes_queued(): void
     {
         $generation = Generation::factory()->create();
         Http::fake(['*/generations' => Http::response(ProviderGeneration::make($generation, 'queued', ['id' => 'gen_accepted']), 202)]);
 
-        $this->run_job($generation)->assertNotReleased();
+        $this->submit($generation);
 
         $generation->refresh();
         $this->assertSame(GenerationStatus::Queued, $generation->status);
         $this->assertSame('gen_accepted', $generation->provider_id);
+        Queue::assertNothingPushed();
     }
 
     public function test_the_concurrency_limit_is_retried_after_the_delay_pixelforge_asks_for(): void
@@ -35,8 +44,15 @@ class SubmitGenerationTest extends TestCase
         $generation = Generation::factory()->create();
         Http::fake(['*' => $this->error(429, 'concurrency_limit_exceeded', ['Retry-After' => '5'])]);
 
-        $this->run_job($generation)->assertReleased(delay: 5);
-        $this->run_job($generation, attempts: 3)->assertReleased(delay: 20);
+        $this->submit($generation);
+        $this->assertRetryQueued(attempt: 2, delay: 5);
+
+        $this->submit($generation, attempt: 3);
+        $this->assertRetryQueued(attempt: 4, delay: 20);
+
+        // The delay keeps doubling but never passes a minute.
+        $this->submit($generation, attempt: 7);
+        $this->assertRetryQueued(attempt: 8, delay: 60);
 
         $this->assertSame(GenerationStatus::Submitting, $generation->refresh()->status);
     }
@@ -46,11 +62,13 @@ class SubmitGenerationTest extends TestCase
         $generation = Generation::factory()->create();
 
         Http::fake(['*' => $this->error(503, 'overloaded', ['Retry-After' => '2'])]);
-        $this->run_job($generation)->assertReleased(delay: 2);
+        $this->submit($generation);
+        $this->assertRetryQueued(attempt: 2, delay: 2);
 
         Http::swap(new Factory);
         Http::fake(fn () => throw new ConnectionException('Timed out.'));
-        $this->run_job($generation, attempts: 2)->assertReleased(delay: 4);
+        $this->submit($generation, attempt: 2);
+        $this->assertRetryQueued(attempt: 3, delay: 4);
 
         $this->assertSame(GenerationStatus::Submitting, $generation->refresh()->status);
     }
@@ -60,8 +78,9 @@ class SubmitGenerationTest extends TestCase
         $generation = Generation::factory()->create();
         Http::fake(['*' => $this->error(503, 'overloaded', ['Retry-After' => '2'])]);
 
-        $this->run_job($generation, attempts: 8)->assertNotReleased();
+        $this->submit($generation, attempt: SubmitGeneration::MAX_ATTEMPTS);
 
+        Queue::assertNothingPushed();
         $generation->refresh();
         $this->assertSame(GenerationStatus::Failed, $generation->status);
         $this->assertSame('overloaded', $generation->error_code);
@@ -73,8 +92,9 @@ class SubmitGenerationTest extends TestCase
         $generation = Generation::factory()->create();
         Http::fake(['*' => $this->error(400, 'content_policy_violation')]);
 
-        $this->run_job($generation)->assertNotReleased();
+        $this->submit($generation);
 
+        Queue::assertNothingPushed();
         $generation->refresh();
         $this->assertSame(GenerationStatus::Failed, $generation->status);
         $this->assertSame('content_policy_violation', $generation->error_code);
@@ -94,14 +114,14 @@ class SubmitGenerationTest extends TestCase
         $this->assertNull($generation->error_code);
     }
 
-    private function run_job(Generation $generation, int $attempts = 1): SubmitGeneration
+    private function submit(Generation $generation, int $attempt = 1): void
     {
-        $job = (new SubmitGeneration($generation))->withFakeQueueInteractions();
-        $job->job->attempts = $attempts;
+        (new SubmitGeneration($generation, $attempt))->handle(app(PixelforgeClient::class), app(GenerationUpdater::class));
+    }
 
-        $job->handle(app(PixelforgeClient::class), app(GenerationUpdater::class));
-
-        return $job;
+    private function assertRetryQueued(int $attempt, int $delay): void
+    {
+        Queue::assertPushed(SubmitGeneration::class, fn (SubmitGeneration $job) => $job->attempt === $attempt && $job->delay === $delay);
     }
 
     private function error(int $status, string $code, array $headers = [])

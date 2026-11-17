@@ -77,8 +77,9 @@ class GenerationController extends Controller
             ]);
         });
 
-        // Pixelforge is called from the queue, so its limits and outages never block the page.
-        SubmitGeneration::dispatch($generation);
+        // Sent once this response is on its way, so the page never waits for Pixelforge
+        // and the first attempt doesn't depend on a queue worker being up.
+        SubmitGeneration::dispatchAfterResponse($generation);
 
         return to_route('generations.index');
     }

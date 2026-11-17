@@ -7,8 +7,8 @@ use App\Jobs\SubmitGeneration;
 use App\Models\Generation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class CreateGenerationTest extends TestCase
@@ -27,7 +27,7 @@ class CreateGenerationTest extends TestCase
         parent::setUp();
 
         Http::fake(['*/pricing' => Http::response(file_get_contents(base_path('tests/Fixtures/pricing.json')))]);
-        Queue::fake();
+        Bus::fake();
     }
 
     public function test_guests_cannot_see_or_create_generations(): void
@@ -44,7 +44,7 @@ class CreateGenerationTest extends TestCase
         $response->assertOk()->assertExactJson(['min' => '0.357781250', 'max' => '0.467343750', 'affordable' => false]);
     }
 
-    public function test_submitting_stores_the_estimate_and_queues_the_request_to_pixelforge(): void
+    public function test_submitting_stores_the_estimate_and_sends_the_request_to_pixelforge_after_responding(): void
     {
         $user = User::factory()->withCredits()->create();
 
@@ -57,7 +57,7 @@ class CreateGenerationTest extends TestCase
         $this->assertNull($generation->charged_nanos);
         $this->assertCount(2, $generation->reference_images);
 
-        Queue::assertPushed(SubmitGeneration::class, fn (SubmitGeneration $job) => $job->generation->is($generation));
+        Bus::assertDispatchedAfterResponse(SubmitGeneration::class, fn (SubmitGeneration $job) => $job->generation->is($generation) && $job->attempt === 1);
     }
 
     public function test_requests_pixelforge_would_reject_are_rejected_before_anything_is_stored(): void
@@ -77,7 +77,7 @@ class CreateGenerationTest extends TestCase
         }
 
         $this->assertSame(0, Generation::count());
-        Queue::assertNothingPushed();
+        Bus::assertNothingDispatched();
     }
 
     public function test_users_only_see_their_own_generations(): void
