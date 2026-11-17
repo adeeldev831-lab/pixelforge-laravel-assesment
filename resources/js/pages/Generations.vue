@@ -3,15 +3,26 @@ import GenerationCard from '@/components/GenerationCard.vue';
 import GenerationForm from '@/components/GenerationForm.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem, type Generation } from '@/types';
-import { Head } from '@inertiajs/vue3';
+import { Head, usePoll } from '@inertiajs/vue3';
+import { watch } from 'vue';
 
-defineProps<{
+const props = defineProps<{
     sizes: string[];
     qualities: string[];
     generations: Generation[];
 }>();
 
 const breadcrumbs: BreadcrumbItem[] = [{ title: 'Generate', href: '/generations' }];
+
+// Live status: while anything is still running, reload just the list every two seconds.
+// It reads our own database, so it costs nothing against Pixelforge's rate limit.
+const { start, stop } = usePoll(2000, { only: ['generations'] }, { autoStart: false });
+
+watch(
+    () => props.generations.some((generation) => !['succeeded', 'failed'].includes(generation.status)),
+    (anyRunning) => (anyRunning ? start() : stop()),
+    { immediate: true },
+);
 </script>
 
 <template>

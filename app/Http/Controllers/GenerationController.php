@@ -19,12 +19,11 @@ class GenerationController extends Controller
 {
     public function index(Request $request, PixelforgeClient $pixelforge): Response
     {
-        $outputTokens = $pixelforge->pricing()['tokens']['output'];
-
+        // Closures, so the page's status polling (which asks only for "generations") skips the rest.
         return Inertia::render('Generations', [
-            'qualities' => array_keys($outputTokens),
-            'sizes' => array_keys(reset($outputTokens)),
-            'generations' => GenerationResource::collection(
+            'qualities' => fn () => array_keys($pixelforge->pricing()['tokens']['output']),
+            'sizes' => fn () => array_keys(reset($pixelforge->pricing()['tokens']['output'])),
+            'generations' => fn () => GenerationResource::collection(
                 $request->user()->generations()->latest('id')->limit(50)->get()
             )->resolve(),
         ]);

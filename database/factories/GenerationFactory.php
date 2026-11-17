@@ -28,7 +28,7 @@ class GenerationFactory extends Factory
 
     public function queued(): static
     {
-        return $this->state([
+        return $this->state(fn () => [
             'status' => GenerationStatus::Queued,
             'provider_id' => 'gen_'.fake()->unique()->regexify('[0-9A-Z]{26}'),
         ]);
