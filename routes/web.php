@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CreditPurchaseController;
 use App\Http\Controllers\GenerationController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -12,6 +13,8 @@ Route::middleware('auth')->group(function () {
     Route::get('generations', [GenerationController::class, 'index'])->name('generations.index');
     Route::post('generations', [GenerationController::class, 'store'])->name('generations.store');
     Route::post('generations/estimate', [GenerationController::class, 'estimate'])->name('generations.estimate');
+
+    Route::post('credits', [CreditPurchaseController::class, 'store'])->name('credits.store');
 });
 
 require __DIR__.'/settings.php';

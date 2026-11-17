@@ -2,12 +2,15 @@
 
 namespace Database\Factories;
 
+use App\Billing\Money;
+use App\Models\CreditTransaction;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
+ * @extends Factory<User>
  */
 class UserFactory extends Factory
 {
@@ -40,5 +43,14 @@ class UserFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'email_verified_at' => null,
         ]);
+    }
+
+    /** Gives the user a balance to spend. */
+    public function withCredits(int $dollars = 10): static
+    {
+        return $this->afterCreating(fn (User $user) => $user->creditTransactions()->create([
+            'type' => CreditTransaction::PURCHASE,
+            'amount_nanos' => $dollars * Money::NANOS_PER_DOLLAR,
+        ]));
     }
 }

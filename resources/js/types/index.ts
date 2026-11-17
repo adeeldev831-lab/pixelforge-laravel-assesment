@@ -64,4 +64,12 @@ export interface Generation {
 export interface CostEstimate {
     min: string;
     max: string;
+    /** Whether the user's available credits cover the maximum. */
+    affordable: boolean;
+}
+
+export interface Credits {
+    balance: string;
+    reserved: string;
+    available: string;
 }

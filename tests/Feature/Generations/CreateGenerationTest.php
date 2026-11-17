@@ -41,12 +41,12 @@ class CreateGenerationTest extends TestCase
         $response = $this->actingAs(User::factory()->create())->postJson('/generations/estimate', $this->workedExample());
 
         // Provider cost is between 0.286225000 and 0.373875000; the user pays 25% more.
-        $response->assertOk()->assertExactJson(['min' => '0.357781250', 'max' => '0.467343750']);
+        $response->assertOk()->assertExactJson(['min' => '0.357781250', 'max' => '0.467343750', 'affordable' => false]);
     }
 
     public function test_submitting_stores_the_estimate_and_queues_the_request_to_pixelforge(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->withCredits()->create();
 
         $this->actingAs($user)->post('/generations', $this->workedExample())->assertRedirect('/generations');
 
@@ -71,7 +71,7 @@ class CreateGenerationTest extends TestCase
         ];
 
         foreach ($invalid as $field => $override) {
-            $this->actingAs(User::factory()->create())
+            $this->actingAs(User::factory()->withCredits()->create())
                 ->post('/generations', $this->workedExample($override))
                 ->assertSessionHasErrors($field);
         }

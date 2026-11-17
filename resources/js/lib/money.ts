@@ -3,7 +3,8 @@
  * It only trims trailing zeros (keeping at least two decimals), so nothing is rounded.
  */
 export function formatUsd(amount: string): string {
-    const [dollars, fraction = ''] = amount.split('.');
+    const sign = amount.startsWith('-') ? '-' : '';
+    const [dollars, fraction = ''] = amount.replace('-', '').split('.');
 
-    return `$${dollars}.${fraction.replace(/0+$/, '').padEnd(2, '0')}`;
+    return `${sign}$${dollars}.${fraction.replace(/0+$/, '').padEnd(2, '0')}`;
 }

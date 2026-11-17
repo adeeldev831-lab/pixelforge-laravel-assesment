@@ -14,6 +14,8 @@ import { ref, watch } from 'vue';
 const props = defineProps<{
     sizes: string[];
     qualities: string[];
+    // The estimate says whether it is affordable, so it is priced again when this changes.
+    availableCredits: string;
 }>();
 
 const MAX_PROMPT_LENGTH = 4000;
@@ -48,7 +50,7 @@ const refreshEstimate = useDebounceFn(async () => {
     }
 }, 300);
 
-watch(() => form.data(), refreshEstimate, { deep: true });
+watch([() => form.data(), () => props.availableCredits], refreshEstimate, { deep: true });
 
 const submit = () => {
     form.post(route('generations.store'), {
@@ -153,7 +155,12 @@ const submit = () => {
             <p v-else class="text-muted-foreground">Write a prompt to see what it will cost.</p>
         </div>
 
-        <Button type="submit" :disabled="form.processing">
+        <p v-if="estimate && !estimate.affordable" class="text-sm text-red-700 dark:text-red-300">
+            You need {{ formatUsd(estimate.max) }} in available credits to generate this image. Buy credits to continue.
+        </p>
+        <InputError :message="form.errors.balance" />
+
+        <Button type="submit" :disabled="form.processing || (estimate !== null && !estimate.affordable)">
             <LoaderCircle v-if="form.processing" class="h-4 w-4 animate-spin" />
             Generate image
         </Button>

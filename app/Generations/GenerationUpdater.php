@@ -4,6 +4,7 @@ namespace App\Generations;
 
 use App\Billing\CostCalculator;
 use App\Billing\Money;
+use App\Models\CreditTransaction;
 use App\Models\Generation;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -77,6 +78,14 @@ class GenerationUpdater
         $generation->rates = $provider['rates'];
         $generation->provider_cost_nanos = $providerCost;
         $generation->charged_nanos = Money::withMarkup($providerCost);
+
+        // Takes the charge from the user's balance, in the same transaction as the status change.
+        CreditTransaction::create([
+            'user_id' => $generation->user_id,
+            'type' => CreditTransaction::CHARGE,
+            'amount_nanos' => -$generation->charged_nanos,
+            'generation_id' => $generation->id,
+        ]);
         $generation->image_url = $provider['image_url'];
         $generation->image_url_expires_at = Carbon::parse($provider['image_url_expires_at']);
         $generation->completed_at = Carbon::parse($provider['completed_at']);
