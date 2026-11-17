@@ -4,11 +4,8 @@ use App\Http\Controllers\AdminReportController;
 use App\Http\Controllers\CreditPurchaseController;
 use App\Http\Controllers\GenerationController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
-Route::get('/', function () {
-    return Inertia::render('Welcome');
-})->name('home');
+Route::redirect('/', '/generations')->name('home');
 
 Route::middleware('auth')->group(function () {
     Route::get('generations', [GenerationController::class, 'index'])->name('generations.index');
